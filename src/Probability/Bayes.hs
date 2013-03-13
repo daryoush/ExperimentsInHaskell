@@ -1,4 +1,4 @@
-module Probability,Bayes where
+module  Probability.Bayes where
 
 import qualified Numeric.Probability.Distribution as Dist
 import qualified Numeric.Probability.Transition as Trans
