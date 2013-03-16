@@ -1,9 +1,24 @@
-> {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE RankNTypes #-}
 
-> module FinallyTagless.SearchTree where
+> module FinallyTagless.CPS where
 
-> import Control.Monad
 > import Data.Map as Map
+
+Basic Idea
+
+We still use search trees to represent stochastic expressions, but we no longer implement the 
+stochastic language using the operations pv_unit and pv_bind in the search-tree monad. 
+We use the continuation monad instead: we represent a stochastic expression of type ’a not as 
+a tree of type ’a pV but in CPS, as a function from the continuation 
+type ’a -> bool pV to the answer type bool pV. 
+
+NOTE:  The SearchTree example is similar to the Tunring failure to list of success.  (I think!)
+The change here is similar to what happens to the Applicative Parser when we got from list of
+successes to the continuation.
+
+
+  
+Data types are the Same as the SearchTree example:
 
 type 'a vc = V of 'a | C of (unit -> 'a pV)
 and 'a pV = (prob * 'a vc) list
@@ -14,55 +29,9 @@ and 'a pV = (prob * 'a vc) list
 
 > instance (Show a) => Show (VC a) where 
 >       show (V a) = "(" ++ (show a) ++ ")"
->       show (C t) = "COMPUTATION"
+>       show (C _) = "COMPUTATION"
 
 
-let pv_unit (x : 'a) : 'a pV = [(1.0, V x)]
-let rec pv_bind (m : 'a pV) (f : 'a -> 'b pV) : 'b pV =
-List.map (function
-| (p, V x) -> (p, C (fun () -> f x))
-| (p, C t) -> (p, C (fun () -> pv_bind (t ()) f))) m
-
-
-In the PV moand >>= composition wraps the computation or value of "f" into a "C" type (function) of VC 
-
-> instance Monad PV where  
->       return a = PV [(1, V a)]
->       -- PV a -> (a -> PV b) -> PV B
->       PV m >>= f = PV (Prelude.map mapf m) where 
->                    mapf (p, V x) = (p, C (\_  ->  f x))
->                    mapf (p, C t) = (p, C (\_ -> (t () >>= f)))
-
-let explore (maxdepth : int option) (choices : 'a pV) : 'a pV =
-let rec loop p depth down choices ((ans,susp) as answers) =
-match choices with
-| [] -> answers
-| (pt, V v)::rest ->
-loop p depth down rest
-(PMap.insert_with (+.) v (pt *. p) ans, susp)
-| (pt, C t)::rest when down ->
-let down' =
-match maxdepth with Some x -> depth < x | None -> true
-in loop p depth down rest
-(loop (pt *. p) (depth + 1) down' (t ()) answers)
-| (pt, c)::rest ->
-loop p depth down rest (ans, (pt *. p,c)::susp) in
-let (ans,susp) = loop 1.0 0 true choices (PMap.empty,[])
-in PMap.foldi (fun v p a -> (p, V v)::a) ans susp
-
-Examples of equivalent PVs
-
-[(0.6, V true); (0.4, V false)]
-  [(0.4, V true); (0.4, V false); (0.2, V true)]
-[(0.4, V true); (1.0, C (fun () ->
-                           [(0.4, V false); (0.2, V true)]))]
-  [(0.4, V true); (0.8, C (fun () ->
-                           [(0.5, V false); (0.25, V true)]))]
-  [(0.4, V true); (0.8, C (fun () ->
-                           [(0.5, V false); (0.25, V true);
-                            (0.25, C (fun () -> []))]))]
-                            
-                            
 > explore:: (Ord a) => Maybe Int -> PV a -> PV a
 > explore (Just maxdepth)(PV choices)  = 
 >       let  loop p depth down [] answers = answers
@@ -84,62 +53,62 @@ Examples of equivalent PVs
 >            valuesFolded = Map.foldWithKey (\k x ks -> (x, V k):ks) [] values
 >            in PV (valuesFolded ++ susp)
 
-                         
-module type ProbSig = sig
-type 'a pm
-type ('a,'b) arr
-val b : bool -> bool pm
-val dist : (prob * 'a) list -> 'a pm
-val neg : bool pm -> bool pm
-val con : bool pm -> bool pm -> bool pm
-val dis : bool pm -> bool pm -> bool pm
-val if_ ; bool pm -> (unit -> 'a pm) -> (unit -> 'a pm) -> 'a pm
-val lam : ('a pm -> 'b pm) -> ('a,'b) arr pm
-val app : ('a,'b) arr pm -> ('a pm -> 'b pm)
-end
-
-
-module SearchTree = struct
-type 'a pm = 'a pV
-type ('a,'b) arr = 'a -> 'b pV
-let b = pv_unit
-let dist ch = List.map (fun (p,v) -> (p, V v)) ch
-let neg e = pv_bind e (fun x -> pv_unit (not x))
-let con e1 e2 = pv_bind e1 (fun v1 ->
-if v1 then e2 else (pv_unit false))
-let dis e1 e2 = pv_bind e1 (fun v1 ->
-if v1 then (pv_unit true) else e2)
-let if_ et e1 e2 = pv_bind et (fun t ->
-if t then e1 () else e2 ())
-let lam e = pv_unit (fun x -> e (pv_unit x))
-let app e1 e2 = pv_bind e1 (pv_bind e2)
-end
 
 
 
-> type PM a = PV a
-> type Arr a b = a -> PV b
+-----------------------------------------------------------
+--  CPS Specific parts
+-------------------------------------------------------------
+
+
+module CPS = struct
+
+   type ’a pm = (’a -> bool pV) -> bool pV
+   type (’a,’b) arr = ’a -> (’b -> bool pV) -> bool pV
+   let b x = fun k -> k x
+   let dist ch = fun k ->
+       List.map (function (p,v) -> (p, C (fun () -> k v))) ch
+   let neg e = fun k -> e (fun v -> k (not v))
+   let con e1 e2 = fun k -> e1 (fun v1 ->
+                    if v1 then e2 k else b false k)
+   let dis e1 e2 = fun k -> e1 (fun v1 ->
+                    if v1 then (b true k) else e2 k)
+   let if_ et e1 e2 = fun k -> et (fun t ->
+                       if t then e1 () k else e2 () k)
+   let lam e = fun k -> k (fun x -> e (fun k -> k x))
+   let app e1 e2 = fun k -> e1 (fun f -> e2 (fun x -> f x k))
+   let reify0 m = m pv_unit
+  end
+  
+> type PM a = (a -> PV Bool) -> PV Bool     -- PV is either a boolean value (V a) or Computation
+>                                           -- C ( ...)  returning a boolean value
+> type Arr a b = a -> (b -> PV Bool) -> PV Bool
+
+
 
 > b :: Bool -> PM Bool
-> b = return 
+> b x = \k -> k x
 
 > dist :: [(Probability, a)] -> PM a
-> dist  ch = PV $ Prelude.map (\(p, v) -> (p, V v)) ch
+> dist  ch = \k ->  PV $ Prelude.map (\(p, v) -> (p, C (\_ -> k v))) ch
 
 > neg :: PM Bool -> PM Bool
-> neg e = e >>= (\x -> return $ not x)   -- this wraps the value or computation in a computation
+> neg e = \k ->  e (\v -> k (not v))
 
 > con :: PM Bool -> PM Bool -> PM Bool
-> con e1 e2 = e1 >>= (\v1 -> if v1 then e2 else return False)
+> con e1 e2 = \k -> e1 (\v1 -> if v1 then (e2 k) else (b False k)) 
 > dis :: PM Bool -> PM Bool -> PM Bool
-> dis e1 e2 = e1 >>= (\v1 -> if v1 then return True else e2)
+> dis e1 e2 = \k -> e1 (\v1 -> if v1 then (b True k) else (e2 k)) 
 > if_ :: PM Bool -> PM a  ->  PM a-> PM a  -- removed the ().  Correct?
-> if_ et e1 e2 = et >>= (\t -> if t then e1 else e2)
+> if_ et e1 e2 = \k -> et (\t -> 
+>        if t then (e1 k) else (e2 k))
 > lam :: (PM a -> PM b) -> PM (Arr a b) 
-> lam e = return (\x -> e (return x)) 
+> lam e = \k -> k (\x -> e (\k2 -> k2 x))
 > app :: PM (Arr a b)   -> (PM a -> PM b)
-> app e1 e2= e1 >>= (e2 >>=) 
+> app e1 e2= \k -> e1 (\f -> e2 (\x -> f x k))
 
+> reify0 :: forall t a. ((a -> PV a) -> t) -> t
+> reify0 m = m (\a -> PV [(1, V a)])
 
 let flip p = dist [(p, true); (1.-.p, false)]
 let let_ e f = app (lam f) e
@@ -158,7 +127,6 @@ if_ grass_is_wet (fun () -> rain) (fun () -> dist []))))
 
 I removed the "()" for the as the grass model argument
 
-> grass_model ::  PM Bool
 > grass_model  =
 >       let_ (flp 0.3) 
 >             (\rain ->      -- "\rain -> .... " is a computation that returns PM a
@@ -178,4 +146,4 @@ in >>= operation to map over values in the list.
 
 > f :: PM Bool -> PM Bool
 > f = (\x -> if_ x x (dist []))
-> main = explore (Just 0) $ grass_model 
+> main = explore (Just 20) $  reify0 grass_model 

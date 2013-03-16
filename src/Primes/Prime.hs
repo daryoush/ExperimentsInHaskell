@@ -3,6 +3,10 @@ module Primes.Prime where
 
 import qualified Data.Map as Map
   
+  
+-- See the article   http://www.cs.hmc.edu/~oneill/papers/Sieve-JFP.pdf
+
+
 sieveAsLet::(Num b, Ord b) => [b] -> Map.Map b [b]
 sieveAsLet lst = sieve' lst Map.empty where
         sieve' [] t = t
