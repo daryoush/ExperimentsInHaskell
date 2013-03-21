@@ -170,5 +170,12 @@ I removed the "()" for the as the grass model argument
 >                                       (\grass_is_wet ->
 >                                           if_ grass_is_wet  rain  (dist []))))
 
+> simpleModel :: PM Bool
+> simpleModel = let_ (flp 0.3) f
 
+notice that the function input is a PM Bool that is a list of (prob, V bool).  The list is then used
+in >>= operation to map over values in the list.
+
+> f :: PM Bool -> PM Bool
+> f = (\x -> if_ x x (dist []))
 > main = explore (Just 0) $ grass_model 

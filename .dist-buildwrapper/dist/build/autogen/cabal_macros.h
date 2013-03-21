@@ -28,6 +28,13 @@
   (major1) == 0 && (major2) <  4 || \
   (major1) == 0 && (major2) == 4 && (minor) <= 2)
 
+/* package mtl-2.1.2 */
+#define VERSION_mtl "2.1.2"
+#define MIN_VERSION_mtl(major1,major2,minor) (\
+  (major1) <  2 || \
+  (major1) == 2 && (major2) <  1 || \
+  (major1) == 2 && (major2) == 1 && (minor) <= 2)
+
 /* package probability-0.2.4 */
 #define VERSION_probability "0.2.4"
 #define MIN_VERSION_probability(major1,major2,minor) (\
