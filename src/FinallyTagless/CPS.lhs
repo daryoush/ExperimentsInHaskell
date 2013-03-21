@@ -146,4 +146,4 @@ in >>= operation to map over values in the list.
 
 > f :: PM Bool -> PM Bool
 > f = (\x -> if_ x x (dist []))
-> main = explore (Just 20) $  reify0 grass_model 
+> main = explore (Just 1) $  reify0 grass_model 

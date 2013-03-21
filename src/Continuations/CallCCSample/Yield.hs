@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes, KindSignatures #-}
 
 
 --
@@ -59,29 +60,33 @@ MonadIO and MonadCont for using IORef and callCC.
 mkgen :: (MonadIO m, MonadIO n, MonadCont n) =>
          ((a -> n c) -> c -> n b) -> m (c -> n (Dot a b))
          -- in First argument is function where c is the initial value, (a->nc) is the continuation taht generates
-         -- next value, nb is the final result from the function as a monad.   
+         -- next value, nb is the final result from the function as a IO, cont monad.   
 mkgen body = do
   inside <- liftIO (newIORef undefined)   --  IO Ref is a A mutable variable in the IO monad
   outside <- liftIO (newIORef undefined)
-  let yield y = do
+  -- yield :: a -> n c 
+  let yield y = do    --This is definition of the func.  The callCC will be evauated when the yeild is called.
         ko <- liftIO (readIORef outside)
         callCC (\ki -> do
                    liftIO (writeIORef inside ki)
                    ko (More y)
                )
+      -- next :: c -> n (Dot a b) 
       next x = do
-        ki <- liftIO (readIORef inside)
+        ki <- liftIO (readIORef inside)  -- computation that either yields the next value or end
         callCC (\ko -> do
                    liftIO (writeIORef outside ko)
-                   ki x
+                   ki x   
                )
+      -- start:: (MonadIO n, MonadCont n) => c -> n b 
       start x = do
-        e <- body yield x
+        e <- body yield x  -- so long as the callcc works it stays in yield, otherwise it goes to the 
+                           -- next part where the End is returned
         liftIO (writeIORef inside (\_ -> return (End e)))  --  Write a new value into an IORef
         ko <- liftIO (readIORef outside)
         ko (End e)
         undefined
-  liftIO (writeIORef inside start)
+  liftIO (writeIORef inside start)   -- start is the first function that next will catyp
   return next
   
   
@@ -96,29 +101,50 @@ mkgen body = do
 --------------------------------------------------------------------
 
 
+-- A function that take a continutation int -> m bool
+--          meaning it would at some point generate an int internally and pass it to the continuation
+--          to get a m bool back.
+-- In put value of a bool (that is used to generate the int for the continuation
+-- return value will be m [char]   so the function changes the result back from the continuation to 
+-- string.
 
-body :: forall (m :: * -> *).
-                   MonadIO m =>
+-- the initial input b starts off the loop, but from then on the bool returns from the cont determines
+-- the next step of the function.
+
+-- Note this function is called in callcc context.  when it returns the callcc returns and then it
+-- can update its values
+body ::  MonadIO m =>
                    (Int -> m Bool) -> Bool -> m [Char]
 body yield b = bodyloop b 0 where
-  bodyloop False n = do
+  bodyloop False n = do    -- to stop the loop returns the "x" character to the caller
     liftIO (putStrLn "body receives False")
     return (replicate n 'x')
-  bodyloop True n = do
+  bodyloop True n = do    --  the yield the value, to get the next bool.  inc value and loop with new bool 
     liftIO (putStrLn "body receives True")
-    b <- yield n
+    b <- yield n  
     bodyloop b $! (n+1)
 
 cmain :: ContT r IO ()
 cmain = do
-  g <- mkgen body
+  g <- mkgen body   -- construct an instance of cont from a function. see type signature
+                    --  (MonadIO m, MonadIO n, MonadCont n) =>
+                    --          ((a -> n c) -> c -> n b) -> m (c -> n (Dot a b))
+                    --  mkgen will be using teh callcc which means the rest of the computation
+                    -- in this case  "cmainloop True"  with be passes to the function as continuation
+                    -- Also note that cmain itself will need a contination to write its results too.
+                    -- that continuation will be   (() -> IO r)
+                    -- how does liftIO work here?  LiftIO lets the monadic computation at the contT
+                    -- level to write to the IO monad that is inside the ContT
+                    -- Why is there a () on the type signature
+                    -- why is return () in the function when it sees the End?
   let cmainloop b = do
         d <- g b
         case d of
           End s -> do liftIO (putStrLn ("caller receives " ++ s))
                       return ()
           More n -> do liftIO (putStrLn ("caller receives " ++ show n))
-                       cmainloop (n < 5)
+                       cmainloop (n < 5)   -- go to five items then set the boolean to false, so the
+                                           -- body gets a false.
   cmainloop True
 
 
