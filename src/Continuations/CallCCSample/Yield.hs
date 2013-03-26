@@ -1,6 +1,18 @@
 {-# LANGUAGE RankNTypes, KindSignatures #-}
 
 
+
+--
+--instance MonadCont (Cont r) where
+--    callCC f = Cont $ \c -> runCont (f (\a -> Cont $ \_ -> c a)) c
+
+--  c is the continuation for the whole (f (.....))
+--  within f, c is also  wrapped into a function that looks like continuation (it would expect)
+--  there for f can apply the conitnuation as many times as it wishes.
+--  without continuation, f can only do a return, where as now it can do as many calls as it pleases.
+-- see http://hackage.haskell.org/packages/archive/mtl/1.1.0.2/doc/html/Control-Monad-Cont-Class.html#v:callCC
+--    
+    
 --
 --From http://www.vex.net/~trebla/haskell/cont-monad.xhtml
 --
@@ -9,8 +21,8 @@
 -- 2    ...
 -- 3    ko <- read outside
 -- 4    callCC $ \ki -> do
--- 5      write inside ki    -- inside stores line 7
--- 6      ko ()              -- jump to line 15
+-- 5      write inside ki    -- inside stores line 7   -- FUTURE IS LINE 7 
+-- 6      ko ()              -- jump to line 15        -- NOTE a RETURN FRM THIS BLOCK IS ALSO TO LINE 7
 -- 7    ...
 -- 8    body
 --
@@ -61,7 +73,7 @@ mkgen :: (MonadIO m, MonadIO n, MonadCont n) =>
          ((a -> n c) -> c -> n b) -> m (c -> n (Dot a b))
          -- in First argument is function where c is the initial value, (a->nc) is the continuation taht generates
          -- next value, nb is the final result from the function as a IO, cont monad.   
-mkgen body = do
+mkgen bdy = do
   inside <- liftIO (newIORef undefined)   --  IO Ref is a A mutable variable in the IO monad
   outside <- liftIO (newIORef undefined)
   -- yield :: a -> n c 
@@ -80,15 +92,15 @@ mkgen body = do
                )
       -- start:: (MonadIO n, MonadCont n) => c -> n b 
       start x = do
-        e <- body yield x  -- so long as the callcc works it stays in yield, otherwise it goes to the 
+        e <- bdy yield x  -- so long as the callcc works it stays in yield, otherwise it goes to the 
                            -- next part where the End is returned
+        liftIO (putStrLn ".... after body yeild x in the start")
         liftIO (writeIORef inside (\_ -> return (End e)))  --  Write a new value into an IORef
         ko <- liftIO (readIORef outside)
         ko (End e)
         undefined
   liftIO (writeIORef inside start)   -- start is the first function that next will catyp
   return next
-  
   
   
   
@@ -113,7 +125,10 @@ mkgen body = do
 
 -- Note this function is called in callcc context.  when it returns the callcc returns and then it
 -- can update its values
-body ::  MonadIO m =>
+
+
+body :: forall (m :: * -> *).
+                   MonadIO m =>
                    (Int -> m Bool) -> Bool -> m [Char]
 body yield b = bodyloop b 0 where
   bodyloop False n = do    -- to stop the loop returns the "x" character to the caller
@@ -121,8 +136,8 @@ body yield b = bodyloop b 0 where
     return (replicate n 'x')
   bodyloop True n = do    --  the yield the value, to get the next bool.  inc value and loop with new bool 
     liftIO (putStrLn "body receives True")
-    b <- yield n  
-    bodyloop b $! (n+1)
+    bb <- yield n  
+    bodyloop bb $! (n+1)
 
 cmain :: ContT r IO ()
 cmain = do

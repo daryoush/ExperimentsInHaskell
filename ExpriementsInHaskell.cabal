@@ -18,7 +18,10 @@ library
                    probability,
                    CC-delcont,
                    ListLike,
-                   mtl
+                   mtl,
+                   split,
+                   HDBC,
+                   HDBC-mysql
   hs-source-dirs:  src
   ghc-options:     -Wall
 
