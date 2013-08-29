@@ -79,3 +79,18 @@ A combination that gives you the log and possible error values
 >                      ErrorT e (WriterT w m) a -> m (Either e a, w)
 > runWEIO x  =  runWriterT $ runErrorT x
 
+
+> type SC r s = StateT s (ContT r Identity)
+
+> runSC :: forall a s a1.
+>                    ((a1, s) -> Identity a) -> s -> StateT s (ContT a Identity) a1 -> a
+> runSC r s  m = runIdentity $ runContT  (runStateT  m s) r
+
+
+> type CS r s = ContT r (StateT s Identity)
+>
+> runCS :: forall s a a1.
+>                    ContT a (StateT s Identity) a1
+>                    -> s -> (a1 -> StateT s Identity a) -> (a, s)
+> runCS x st contin = runIdentity $ runStateT (runContT x contin) st
+
