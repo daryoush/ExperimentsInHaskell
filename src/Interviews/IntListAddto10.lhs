@@ -1,5 +1,8 @@
+> module Interviews.IntListAddto10  where
+
+
 Problem:   We have a list of Inetgers and we like to find the first two integers that add to 10.
-We need the integers and their offset within the array.
+e need the integers and their offset within the array.
 
 > {-# OPTIONS_HADDOCK  ignore-exports #-}
 > {-# LANGUAGE  FlexibleInstances,
@@ -9,7 +12,6 @@ We need the integers and their offset within the array.
 >              CPP  #-}
 
 
-> module IntListAddTo10UsingListFunctions  where
 
 Solutuon using the list functions
 

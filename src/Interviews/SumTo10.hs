@@ -1,4 +1,4 @@
-module SumtoN where
+module Interviews.SumTo10 where
 import Control.Monad
 
 data NN = NN { offset:: Int, number :: Int} deriving Show
