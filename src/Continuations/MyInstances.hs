@@ -53,24 +53,49 @@ class (Monad m) => MonadCont m where
     callCC :: ((a -> m b) -> m a) -> m a
     
 
+
+--fmap :: (a -> b) -> f a -> f b  
+
+--(>>=) :: forall a b. m a -> (a -> m b) -> m b
+--return :: a -> m a
+
+
+--ask :: m rSource
+--local :: (r -> r) -> m a -> m a
+
+--get :: m sSource
+--put :: s -> m ()
+
+--lift :: Monad m => m a -> t m a
+--liftIO :: IO a -> m a
+
 -- Instances to fill in
 
 
+
+
 instance Functor (Cont r) where
-    fmap f m = undefined
+    fmap f m =  Cont (\c -> m `runCont`  (c.f))
+    --Cont (\c ->  runCont m (\a ->  c (f a)))   --- NOTE (\a -> c (f a)) can be written as c.f
+
 
 instance Monad (Cont r) where
-    return a = undefined
-    m >>= k  = undefined
+    return a = Cont (\c ->  c a)   --  ($) :: (a -> b) -> a -> b  so ($ a)  is (a->b) -> b
+    m >>= k  = Cont (\c -> runCont m (\a -> runCont  (k a) c)) --- WOW I got this myself :)
+
+
+-- F's view of the world is that there is a function as its argument that would
+-- abort computation and pass values to the continuation.
 
 instance MonadCont (Cont r) where
-    callCC f = undefined
+    callCC f = Cont (  \c -> runCont ( f (\a -> Cont (\_ -> c a )) ) c )
     
-{-
+ {- |
 The continuation monad transformer.
 Can be used to add continuation handling to other monads.
 -}
-    
+
+
 instance (Monad m) => Functor (ContT r m) where
     fmap f m = undefined
 
@@ -97,6 +122,19 @@ instance (MonadIO m) => MonadIO (ContT r m) where
 instance (MonadReader r' m) => MonadReader r' (ContT r m) where
     ask       = undefined
     local f m = undefined
+    
+
+
+--
+-- > type CS r s = ContT r (StateT s Identity)
+-- >
+-- > runCS :: forall s a a1.
+-- >                    ContT a (StateT s Identity) a1
+-- >                    -> s -> (a1 -> StateT s Identity a) -> (a, s)
+-- > runCS x st contin = runIdentity $ runStateT (runContT x contin) st
+--
+
+
 
 -- Needs -fallow-undecidable-instances
 instance (MonadState s m) => MonadState s (ContT r m) where
@@ -119,10 +157,20 @@ instance (Monad m) => Monad (StateT s m) where
     fail str = StateT $ \_ -> fail str
     
     
+-- A Statefull computation that its a in  s -> (s,a) is continuation type (ContT)
+-- You have a situation like:
+-- 
+-- > type SC r s = StateT s (ContT r Identity)
+-- > runSC :: forall a s a1.
+-- >                    ((a1, s) -> Identity a) -> s -> StateT s (ContT a Identity) a1 -> a
+-- > runSC finalCont initState  m = runIdentity $ runContT  (runStateT  m initState) finalCont
+--
+-- Idea of callcc is to "push" the continuation to the MonadCont monad embeded 
+-- within the outside computation (state, writer, error)
+
 
 instance (MonadCont m) => MonadCont (StateT s m) where
-    callCC f = undefined
-    
+    callCC =   undefined    
     
  
 -- ReaderT

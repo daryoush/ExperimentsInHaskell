@@ -1,10 +1,9 @@
-{-# LANGUAGE RankNTypes, GADTs, MultiParamTypeClasses, FunctionalDependencies, TypeOperators, ScopedTypeVariables #-}
-module Parser.ApplicativeParserFromUUParser where
+{-# LANGUAGE  RankNTypes, GADTs, MultiParamTypeClasses, FunctionalDependencies, TypeOperators, ScopedTypeVariables #-}
+module Parser.ApplicativeParserFromUUParse where
 
 import Control.Applicative
 import Debug.Trace
 import qualified Data.ListLike as LL
-
 
 trace' :: String -> b -> b
 --trace' m v = {- trace m -}  v
@@ -38,20 +37,22 @@ type Progress = Int
 type Strings  = [String]
 type Cost     = Int
 
-data  Steps   a  where
-      Step   ::                 Progress       ->  Steps a                             -> Steps   a
-      Apply  ::  forall a b.    (b -> a)       ->  Steps   b                           -> Steps   a
-      Fail   ::                 Strings                                                -> Steps   a
+data  Steps   x  where
+      Step   :: Progress       ->  Steps a                             -> Steps   a
+      Apply  :: forall a b. (b -> a)       ->  Steps   b                           -> Steps   a
+      Fail   ::  Strings                                                -> Steps   a
+      
 
+        
 
 
 -- | `norm` makes sure that the head of the seqeunce contains progress information. 
 --   It does so by pushing information about the result (i.e. the `Apply` steps) backwards.
 --
 norm ::  Steps a ->  Steps   a
-norm     (Apply f (Step   p    l  ))   =   Step  p (Apply f l)
-norm     (Apply _ (Fail   ss    ))   =   Fail ss 
-norm     (Apply f (Apply  g    l  ))   =   norm (Apply (f.g) l)
+norm     (Apply  f (Step   p    l  ))   =   Step  p (Apply f l)
+norm     (Apply  _ (Fail   ss    ))   =   Fail ss 
+norm     (Apply f (Apply   g    l  ))   =   norm (Apply  (f.g) l)
 norm     steps                         =   steps
 
 
@@ -81,13 +82,13 @@ _                       `best'`  _       =   error "missing alternative in best'
 -- SO APPLY ONLY WORKS WHEN THE COMPILER CAN GURANTEE THE the two top memebers of the stack
 
 apply       :: Steps (b -> a, (b, r)) -> Steps (a, r)
-apply       =  Apply (\(b2a, (b, r)) -> (b2a b, r))   -- removed the let my doing a pattern matching on args
+apply       =  trace "apply function" Apply (\(b2a, (b, r)) -> (b2a b, r))   -- removed the let my doing a pattern matching on args
 
 push        :: v -> Steps   r -> Steps   (v, r)
-push v      =  Apply (\ r -> (v, r))
+push v      =  trace "push function:" Apply   (\ r -> (v, r))
 
 apply2fst   :: (b -> a) -> Steps (b, r) -> Steps (a, r)
-apply2fst f = Apply (\ (b, r) -> (f b, r)) 
+apply2fst f = trace "apply to fst" Apply  (\ (b, r) -> (f b, r)) 
 
 noAlts :: Steps a
 noAlts      =  Fail []
@@ -96,6 +97,7 @@ noAlts      =  Fail []
 -- The first argument is the continuation.  An instance of this type must  take step, figure out
 -- the evidence (a), then pass the step to the continuation and then do post processing
 -- combining the resut of the continuation with eveidence for its own result.
+--  NOTE type of r is not defined as parameter type for PF, that is why we use forall
 newtype PF st a = PF (forall r . (st -> Steps r)  -> st -> Steps(a, r) )  --   future parser
 
 
@@ -119,14 +121,14 @@ parse  (PF pf)  = fst . eval . pf  (\ rest -> if eof rest
 eval :: Steps   a      ->  a
 eval (Step  n    l)     =   trace' ("Step " ++ show n ++ "\n") (eval l)
 eval (Fail   ss   )     =   trace' ("expecting: " ++ show ss)  undefined  -- what to do here?
-eval (Apply  f   l)     =   f (eval l)
+eval (Apply   f   l)     =   trace' ("eval Apply: ") (f (eval l))
 
 
 
 traverse :: Int -> Steps a -> Int -> Int  -> Int 
 traverse 0  _            v c  =  trace' ("traverse " ++ show' 0 v c ++ " choosing" ++ show v ++ "\n") v
 traverse n (Step _   l)  v c  =  trace' ("traverse Step   " ++ show' n v c ++ "\n") (traverse (n -  1 ) l (v - n) c)
-traverse n (Apply _  l)  v c  =  trace' ("traverse Apply  " ++ show n ++ "\n")      (traverse n         l  v      c)
+traverse n (Apply  _  l)  v c  =  trace' ("traverse Apply  " ++ show n ++ "\n")      (traverse n         l  v      c)
 traverse n (Fail m ) v c  =  trace' ("traverse Fail   " ++ show m ++ show' n v c ++ "\n") 
                                  (foldr (\ (w,l) c' -> if v + w < c' then traverse (n -  1 ) l (v+w) c'
                                                        else c') c (map ($m) undefined)  -- ??????
@@ -178,7 +180,7 @@ justCompose (PF p) (PF q) = p.q
 
 justApply :: forall a b a1 r.
                         (a -> Steps (b -> a1, (b, r))) -> a -> Steps (a1, r)
-justApply = (apply .)
+justApply = trace "just apply"  (apply .)
 
 justApplyApplyToCompose :: forall a b a1 r.
                                       PF a (b -> a1)
@@ -363,8 +365,8 @@ show_attempt m v =  {- trace m -}  v
      
 {-# INLINE show_symbol #-}
 show_symbol :: String -> b -> b
-show_symbol m v =   {- trace m -}  v
--- show_symbol m v =     trace m   v          
+--show_symbol m v =   {- trace m -}  v
+show_symbol m v =     trace m   v          
 
 -- | `pSym` recognises a specific element. Furthermore it can be specified what element.
 --  Information about `Insertion` is derived from the parameter.
@@ -435,6 +437,12 @@ pEnd    = PF (  \ k   inp -> let deleterest inp =  case deleteAtEnd inp of
 -- | Our first two parsers are simple; one recognises a single 'a' character and the other one a single 'b'. 
 -- Since we will use them later we 
 --   convert the recognised character into `String` so they can be easily combined.
+--  <$> is from the applicative lib it is defined as: (<$>) :: Functor f => (a -> b) -> f a -> f b
+-- <$> is infix synonmous version of function's fmap.
+--  it is taking function lift and does fmap (of PF type) to result of pSym 'a'
+-- so instead of result being a char (as in case of 'a') would be we have a [char]
+
+-- 
 pa  ::Parser String 
 pa  = lift <$> pSym 'a'
 
@@ -455,4 +463,4 @@ lift a = [a]
 
 
 main::IO()
-main = run pa3 "aa"
+main = run pa3 "aaa"
