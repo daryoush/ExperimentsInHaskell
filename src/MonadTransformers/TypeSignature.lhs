@@ -20,8 +20,20 @@ In the run method the runXX works from inside out in the type signauer.
 The last runXX (the first in the runXX $ ......)   give the final result  as "XX a" with the "a" being
 the  returned type of the "......" function.
 
+
+Note that monad transformer type XxxxT is a type wraper, when you run the runXxxxT you get the 
+origian monad with its type modfied to be the type Xxxxx
+
+
+
+
 > type CSE r s e  = ContT r (StateT s (ErrorT e Identity))
 
+Idea is that we have an identity monad that its "a" is 
+
+a ErrorT type that implements MonadError and its "a" is  
+a StateT type that implements MonadState and its "a" is 
+a ContT type that implements MonadCont 
 
 
 > runCSE :: forall e s a a1.
@@ -29,7 +41,15 @@ the  returned type of the "......" function.
 >                       -> s  
 >                       -> (a1 -> StateT s (ErrorT e Identity) a)  -- Continuation
 >                       -> Either e (a, s)
-> runCSE x st  contin= runIdentity $ runErrorT $ runStateT (runContT  x contin) st
+
+
+The outside wraper is a ContT type so the runCont with its parameters gives the monad that is StateT
+type,  so we need to run the runStateT...
+
+> runCSE x st  contin= runIdentity $ 
+>       runErrorT $ 
+>       runStateT (runContT  x contin) st   
+
 
 > type SEC r s e  =  StateT s (ErrorT e ( ContT r Identity))
 

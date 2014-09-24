@@ -1,9 +1,15 @@
-{-# LANGUAGE  RankNTypes, GADTs, MultiParamTypeClasses, FunctionalDependencies, TypeOperators, ScopedTypeVariables #-}
+{-# LANGUAGE  KindSignatures, RankNTypes, GADTs, MultiParamTypeClasses, FunctionalDependencies, TypeOperators, ScopedTypeVariables #-}
 module Parser.ApplicativeParserFromUUParse where
 
 import Control.Applicative
 import Debug.Trace
 import qualified Data.ListLike as LL
+
+
+
+
+
+
 
 trace' :: String -> b -> b
 --trace' m v = {- trace m -}  v
@@ -37,10 +43,10 @@ type Progress = Int
 type Strings  = [String]
 type Cost     = Int
 
-data  Steps   x  where
+data  Steps:: * -> *   where
       Step   :: Progress       ->  Steps a                             -> Steps   a
-      Apply  :: forall a b. (b -> a)       ->  Steps   b                           -> Steps   a
-      Fail   ::  Strings                                                -> Steps   a
+      Apply  :: forall a b. (b -> a)       ->  Steps   b               -> Steps   a
+      Fail   ::  Strings                                               -> Steps   a
       
 
         

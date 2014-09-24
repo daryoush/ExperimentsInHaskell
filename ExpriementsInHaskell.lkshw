@@ -1,0 +1,10 @@
+Version of workspace file format:
+               1
+Time of storage:
+               "Tue Sep 23 18:25:57 PDT 2014"
+Name of the workspace:
+               "ExpriementsInHaskell"
+File paths of contained packages:
+               ["/Users/ijet/Downloads/reactive-0.11.5/reactive.cabal","/Users/ijet/Documents/Haskell-Workspace/SparkOnHaskell/SparkOnHaskell.cabal","/Users/ijet/Documents/workspace/accelerate-0.14.0.0/accelerate.cabal","/Users/ijet/Downloads/repa-3.2.5.1/repa.cabal","/Users/ijet/Downloads/accelerate-cuda-0.14.0.0/accelerate-cuda.cabal","ExpriementsInHaskell.cabal","/Users/ijet/Documents/Haskell-Workspace/ChartPatterns/ChartPatterns.cabal"]
+Maybe file path of an active package:
+               Just "ExpriementsInHaskell.cabal"

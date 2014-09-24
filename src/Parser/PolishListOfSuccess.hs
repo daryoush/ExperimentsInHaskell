@@ -5,6 +5,8 @@ module Parser.PolishListOfSuccess where
 infixl 3 <|>
 infixl 4 <*>,<*,<$,<$>
 
+-- modeling the parser as transformation of string. As list transformation the computation can
+-- take advantage of List computations (and must live with their limitations)
 type Parser a = String -> [(a, String)]
 (<|>) :: Parser a -> Parser a -> Parser a
 (<*>) :: Parser (b -> a) -> Parser b -> Parser a
