@@ -32,6 +32,15 @@ instance PrettyPrinter Doc where
   nest  = Nest
   
   
+  
+-- DSL View 
+-- Tree is expressed using langauge of Nodes and children
+-- ShowTree translates the langauge of Tree to langauge of PrettyPrinting
+-- Doc is a data representation of the PrettyPrinting langauge for a possible DeepEmbedding DSL 
+-- Evaluation
+-- As is shown In other modules in this package, a Shallow Embeding of the pretty printing is 
+-- also possible. 
+
 data Tree = Node String [Tree]
 
 showTree (Node s ts) = gr (text s <>
@@ -44,13 +53,13 @@ showTrees [t] = showTree t
 showTrees (t:ts) = showTree t <> text "," <> line <> showTrees ts
 
 
-tree = Node "aaa" [ Node "bbbbb" [ Node "ccc" [],
-                                   Node "dd" []
+tree = Node "a12" [ Node "b123" [ Node "c1234" [],
+                                   Node "d1234" []
                     ],
-                    Node "eee" [],
-                    Node "ffff" [ Node "gg" [],
-                                  Node "hhh" [],
-                                  Node "ii" []
+                    Node "e123" [],
+                    Node "f123" [ Node "g1234" [],
+                                  Node "h1234" [],
+                                  Node "i1234" []
                     ]
        ]
   
@@ -71,9 +80,9 @@ tree = Node "aaa" [ Node "bbbbb" [ Node "ccc" [],
 --showTrees t  =  foldr (<>) noDoc (intersperse (text "," <> line) t)
 --
 --
---ex = Tree "aaa" [Tree "bbbb" [Tree "ccc" [], Tree "dd" []]
---                , Tree "eee" []
---                , Tree "ffff" [ Tree "gg" [], Tree "hhhh" [], Tree "ii" []]
+--ex = Tree "a12" [Tree "b123" [Tree "c1234" [], Tree "d1234" []]
+--                , Tree "e123" []
+--                , Tree "f123" [ Tree "g234" [], Tree "h1234" [], Tree "i1234" []]
 --                ]
 --                
               
@@ -82,3 +91,10 @@ toNoFormatDoc t = showTree t
 
 
 main = toNoFormatDoc tree
+
+
+-- *PrettyPrinter.PPInterface> main
+-- Group (Text "aaa" :<> Nest 3 ((Text "[" :<> Nest 1 (((Group (Text "bbbbb" :<> Nest 5 ((Text "[" :<> Nest 1 (((Group (Text "ccc" :<> Nest 3 NoDoc) :<> Text ",") :<> Line) :<> Group (Text "dd" :<> Nest 2 NoDoc))) :<> Text "]")) :<> Text ",") :<> Line) :<> (((Group (Text "eee" :<> Nest 3 NoDoc) :<> Text ",") :<> Line) :<> Group (Text "ffff" :<> Nest 4 ((Text "[" :<> Nest 1 (((Group (Text "gg" :<> Nest 2 NoDoc) :<> Text ",") :<> Line) :<> (((Group (Text "hhh" :<> Nest 3 NoDoc) :<> Text ",") :<> Line) :<> Group (Text "ii" :<> Nest 2 NoDoc)))) :<> Text "]"))))) :<> Text "]"))
+
+
+--  Group (Text "aaa" :<> Nest 3 ((Text "[" :<> Nest 1 (((Group (Text "bbbbb" :<> Nest 5 ((Text "[" :<> Nest 1 (((Group (Text "ccc" :<> Nest 3 NoDoc) :<> Text ",") :<> Line) :<> Group (Text "dd" :<> Nest 2 NoDoc))) :<> Text "]")) :<> Text ",") :<> Line) :<> (((Group (Text "eee" :<> Nest 3 NoDoc) :<> Text ",") :<> Line) :<> Group (Text "ffff" :<> Nest 4 ((Text "[" :<> Nest 1 (((Group (Text "gg" :<> Nest 2 NoDoc) :<> Text ",") :<> Line) :<> (((Group (Text "hhh" :<> Nest 3 NoDoc) :<> Text ",") :<> Line) :<> Group (Text "ii" :<> Nest 2 NoDoc)))) :<> Text "]"))))) :<> Text "]"))

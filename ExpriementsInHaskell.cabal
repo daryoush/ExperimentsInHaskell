@@ -31,5 +31,8 @@ library
   ghc-options:     -Wall
   exposed-modules: 
                    PrettyPrinter.Formatter1,
+                   PrettyPrinter.Formatter2,
+                   PrettyPrinter.Formatter1WithLet,
                    PrettyPrinter.PPInterface
+                   PrettyPrinter.Utils
 
